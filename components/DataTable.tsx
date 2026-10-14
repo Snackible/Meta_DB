@@ -1,0 +1,129 @@
+'use client'
+import { useState, useMemo } from 'react'
+
+function inr(v: any) {
+  const n = parseFloat(v)
+  if (isNaN(n)) return v
+  return '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+}
+
+function fmt(v: any, col: string): string {
+  if (v === null || v === undefined || v === '') return '—'
+  const s = String(v)
+  if (['spend', 'cpc', 'cpr'].includes(col)) return inr(v)
+  if (col === 'roas') return parseFloat(v).toFixed(2) + 'x'
+  if (col === 'avg3dRoas' || col === 'avg3d_roas') {
+    const n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(2) + 'x'
+  }
+  return s
+}
+
+function exportCSV(cols: string[], rows: any[][]) {
+  const lines = [cols.join(','), ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))]
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  const a    = document.createElement('a'); a.href = URL.createObjectURL(blob)
+  a.download = 'meta-ads.csv'; a.click()
+}
+
+interface Props {
+  columns: string[]
+  rows: Record<string, any>[]
+  loading?: boolean
+  error?: string
+}
+
+export default function DataTable({ columns, rows, loading, error }: Props) {
+  const [search, setSearch]   = useState('')
+  const [sortCol, setSortCol] = useState('')
+  const [sortAsc, setSortAsc] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo,   setDateTo]   = useState('')
+
+  const filtered = useMemo(() => {
+    let r = rows
+    if (dateFrom) r = r.filter(row => (row.date || '') >= dateFrom)
+    if (dateTo)   r = r.filter(row => (row.date || '') <= dateTo)
+    if (search)   r = r.filter(row => Object.values(row).some(v => String(v ?? '').toLowerCase().includes(search.toLowerCase())))
+    if (sortCol) {
+      r = [...r].sort((a, b) => {
+        const av = parseFloat(a[sortCol]) || String(a[sortCol] ?? '')
+        const bv = parseFloat(b[sortCol]) || String(b[sortCol] ?? '')
+        if (av < bv) return sortAsc ? -1 : 1
+        if (av > bv) return sortAsc ? 1 : -1
+        return 0
+      })
+    }
+    return r
+  }, [rows, search, sortCol, sortAsc, dateFrom, dateTo])
+
+  const rawRows = filtered.map(r => columns.map(c => r[c] ?? ''))
+
+  function toggleSort(col: string) {
+    if (sortCol === col) setSortAsc(a => !a)
+    else { setSortCol(col); setSortAsc(false) }
+  }
+
+  if (error) return <p className="text-red-400 text-sm p-4">{error}</p>
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search…"
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm w-52 placeholder-gray-500 focus:outline-none focus:border-gray-500"
+        />
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500" />
+        <span className="text-gray-500 text-sm">to</span>
+        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500" />
+        <button
+          onClick={() => exportCSV(columns, rawRows)}
+          className="ml-auto bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm hover:bg-gray-700 transition"
+        >
+          Download CSV
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-500 text-sm py-8 text-center">Loading…</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-800">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800">
+                {columns.map(col => (
+                  <th
+                    key={col}
+                    onClick={() => toggleSort(col)}
+                    className="px-3 py-2.5 text-left text-xs text-gray-400 uppercase tracking-wide cursor-pointer hover:text-gray-200 whitespace-nowrap select-none"
+                  >
+                    {col.replace(/_/g, ' ')}
+                    {sortCol === col ? (sortAsc ? ' ↑' : ' ↓') : ''}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={columns.length} className="text-center text-gray-500 py-8">No data</td></tr>
+              ) : filtered.map((row, i) => (
+                <tr key={i} className="border-b border-gray-900 hover:bg-gray-900/50">
+                  {columns.map(col => (
+                    <td key={col} className="px-3 py-2 text-gray-200 whitespace-nowrap">
+                      {fmt(row[col], col)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
+            {filtered.length} rows{rows.length !== filtered.length ? ` (of ${rows.length})` : ''}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

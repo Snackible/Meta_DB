@@ -8,7 +8,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "googleapis": "^185.0.0",
     "next": "16.4.0",
+    "next-auth": "^4.24.15",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

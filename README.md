@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Snackible Meta Ads Viewer
 
-## Getting Started
+A read-only dashboard showing Meta Ads data for the Snackible e-commerce team.
+Requires Google sign-in; access is limited to the allowlist in `ALLOWED_EMAILS`.
 
-First, run the development server:
+## How it works
+
+- **Live data** (`/`): fetches directly from the Meta Marketing API on page load
+- **History** (`/campaigns`, `/adsets`, `/ads`, `/low-performers`): reads from a Google Sheet populated by the daily cron job
+- **Cron** (`/api/snapshot`): runs every day at 6am IST, re-pulls the last 7 days and overwrites existing rows (Meta revises recent numbers)
+
+## Environment variables
+
+| Variable | Where to get it |
+|---|---|
+| `META_TOKEN` | Meta Business Manager → System Users → Generate Token (needs `ads_read`) |
+| `META_AD_ACCOUNT_ID` | Ads Manager URL: `?act=XXXXXXXXXX` → use `act_XXXXXXXXXX` |
+| `NEXTAUTH_URL` | Your production URL, e.g. `https://meta.snackible.com` |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `GOOGLE_CLIENT_ID` | Google Cloud Console → OAuth 2.0 Client ID |
+| `GOOGLE_CLIENT_SECRET` | Same OAuth client |
+| `ALLOWED_EMAILS` | Comma-separated emails, e.g. `aditi@snackible.com` |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account email from JSON key file |
+| `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | Private key from JSON key file (replace newlines with `\n`) |
+| `GOOGLE_SHEET_ID` | Long ID from the Google Sheet URL |
+| `CRON_SECRET` | `openssl rand -base64 32` |
+
+## Google service account setup (one-time, 5 minutes)
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com)
+2. Create a project (or use an existing one)
+3. Enable the **Google Sheets API**
+4. Go to **IAM & Admin → Service Accounts** → Create service account
+5. Download the JSON key file
+6. Create a new Google Sheet, share it with the service account email (Editor role)
+7. Copy the sheet ID from the URL and paste into `GOOGLE_SHEET_ID`
+8. From the JSON key file, copy `client_email` → `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+9. Copy `private_key` → `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` (keep the `\n` characters)
+
+## Running the snapshot job manually
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+curl -X POST https://your-domain.vercel.app/api/snapshot \
+  -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running the backfill (one-time, pulls all Meta history)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+curl -X POST "https://your-domain.vercel.app/api/backfill?months=37" \
+  -H "Authorization: Bearer YOUR_CRON_SECRET"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This can take several minutes. Batches in groups of 30 days to avoid timeouts.
 
-## Learn More
+## What to do if the snapshot fails
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Check Vercel function logs: `vercel logs --prod`
+2. The `Log` tab in the Google Sheet shows each run's timestamp and any errors
+3. If the sheet connection fails, check that the service account still has Editor access
+4. If Meta API fails, check that `META_TOKEN` has not expired (System User tokens don't expire, but page tokens do)

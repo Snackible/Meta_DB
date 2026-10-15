@@ -141,9 +141,13 @@ export function daysAgo(n: number, base = new Date()) {
 }
 
 /** Pulls per-day rows directly from the Meta API for the last `days` days (no Sheets dependency). */
-export async function fetchLastNDays(days: number) {
+export async function fetchLastNDays(days: number, concurrency = 3) {
   const dates = Array.from({ length: days }, (_, i) => daysAgo(days - i))
-  const perDay = await Promise.all(dates.map(fetchDay))
+  const perDay: Awaited<ReturnType<typeof fetchDay>>[] = []
+  for (let i = 0; i < dates.length; i += concurrency) {
+    const batch = await Promise.all(dates.slice(i, i + concurrency).map(fetchDay))
+    perDay.push(...batch)
+  }
   return {
     campaigns: perDay.flatMap(d => d.campaigns),
     adsets:    perDay.flatMap(d => d.adsets),

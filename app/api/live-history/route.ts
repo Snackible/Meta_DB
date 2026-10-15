@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
 import { fetchLastNDays } from '@/lib/meta'
 
+export const maxDuration = 60
+
 const LOW_PERFORMER_MIN_SPEND = 5000
 const LOW_PERFORMER_MAX_ROAS  = 2.5
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const tab  = searchParams.get('tab') || 'Campaigns'
-  const days = Math.min(30, Math.max(1, parseInt(searchParams.get('days') || '14')))
+  const days = Math.min(30, Math.max(1, parseInt(searchParams.get('days') || '7')))
 
   try {
     const { campaigns, adsets, ads } = await fetchLastNDays(days)

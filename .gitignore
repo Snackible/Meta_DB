@@ -9,3 +9,6 @@ out/
 _to_delete_duplicate/
 .env
 .env.local
+
+.vercel
+.env*

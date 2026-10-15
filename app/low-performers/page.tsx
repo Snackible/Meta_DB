@@ -21,7 +21,7 @@ export default function LowPerformersPage() {
     <div>
       <Nav />
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-xl font-semibold mb-2">Low Performers</h1>
+        <h1 className="text-xl font-semibold text-gray-900 mb-2">Low Performers</h1>
         <p className="text-sm text-gray-500 mb-6">Campaigns & ad sets with spend ≥ ₹5,000 and ROAS &lt; 2.5x</p>
         <DataTable columns={COLS} rows={rows} loading={loading} error={error} />
       </main>

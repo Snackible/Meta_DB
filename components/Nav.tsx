@@ -15,18 +15,18 @@ export default function Nav() {
   const path = usePathname()
   const { data: session } = useSession()
   return (
-    <nav className="border-b border-gray-800 bg-gray-950 sticky top-0 z-10">
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-12">
+    <nav className="border-b border-gray-200 bg-white sticky top-0 z-10 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
         <div className="flex items-center gap-1">
-          <span className="text-sm font-semibold text-gray-300 mr-3">Meta Ads</span>
+          <span className="text-sm font-bold text-indigo-600 mr-4">Meta Ads</span>
           {links.map(l => (
             <Link
               key={l.href}
               href={l.href}
-              className={`px-3 py-1.5 rounded text-sm transition ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
                 path === l.href
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-900'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
               }`}
             >
               {l.label}
@@ -34,7 +34,7 @@ export default function Nav() {
           ))}
         </div>
         {session && (
-          <button onClick={() => signOut()} className="text-xs text-gray-500 hover:text-gray-300">
+          <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-700">
             Sign out
           </button>
         )}

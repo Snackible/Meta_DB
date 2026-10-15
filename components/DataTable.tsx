@@ -1,5 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
+import SignalBadge from './SignalBadge'
+import { outlierFlags } from '@/lib/stats'
 
 function inr(v: any) {
   const n = parseFloat(v)
@@ -56,6 +58,12 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
     return r
   }, [rows, search, sortCol, sortAsc, dateFrom, dateTo])
 
+  // Statistical outliers within the currently filtered set, on ROAS (good or bad) and CPC (bad only shown).
+  const roasOutliers = useMemo(
+    () => columns.includes('roas') ? outlierFlags(filtered.map(r => parseFloat(r.roas) || 0)) : [],
+    [filtered, columns]
+  )
+
   const rawRows = filtered.map(r => columns.map(c => r[c] ?? ''))
 
   function toggleSort(col: string) {
@@ -63,7 +71,7 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
     else { setSortCol(col); setSortAsc(false) }
   }
 
-  if (error) return <p className="text-red-400 text-sm p-4">{error}</p>
+  if (error) return <p className="text-rose-600 text-sm p-4">{error}</p>
 
   return (
     <div className="flex flex-col gap-3">
@@ -71,33 +79,38 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
         <input
           value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search…"
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm w-52 placeholder-gray-500 focus:outline-none focus:border-gray-500"
+          className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm w-52 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
         />
         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500" />
-        <span className="text-gray-500 text-sm">to</span>
+          className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400" />
+        <span className="text-gray-400 text-sm">to</span>
         <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-gray-500" />
+          className="bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400" />
+        {columns.includes('roas') && (
+          <span className="text-xs text-gray-400 flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm bg-rose-200 border border-rose-300 inline-block" /> = statistical outlier
+          </span>
+        )}
         <button
           onClick={() => exportCSV(columns, rawRows)}
-          className="ml-auto bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm hover:bg-gray-700 transition"
+          className="ml-auto bg-indigo-600 text-white rounded-md px-3 py-1.5 text-sm hover:bg-indigo-700 transition font-medium"
         >
           Download CSV
         </button>
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-sm py-8 text-center">Loading…</p>
+        <p className="text-gray-400 text-sm py-8 text-center">Loading…</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-800">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-gray-200 bg-gray-50">
                 {columns.map(col => (
                   <th
                     key={col}
                     onClick={() => toggleSort(col)}
-                    className="px-3 py-2.5 text-left text-xs text-gray-400 uppercase tracking-wide cursor-pointer hover:text-gray-200 whitespace-nowrap select-none"
+                    className="px-3 py-2.5 text-left text-xs text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
                   >
                     {col.replace(/_/g, ' ')}
                     {sortCol === col ? (sortAsc ? ' ↑' : ' ↓') : ''}
@@ -107,19 +120,19 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={columns.length} className="text-center text-gray-500 py-8">No data</td></tr>
+                <tr><td colSpan={columns.length} className="text-center text-gray-400 py-8">No data</td></tr>
               ) : filtered.map((row, i) => (
-                <tr key={i} className="border-b border-gray-900 hover:bg-gray-900/50">
+                <tr key={i} className={`border-b border-gray-100 hover:bg-indigo-50/40 ${roasOutliers[i] ? 'bg-rose-50/70' : ''}`}>
                   {columns.map(col => (
-                    <td key={col} className="px-3 py-2 text-gray-200 whitespace-nowrap">
-                      {fmt(row[col], col)}
+                    <td key={col} className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                      {col === 'signal' ? <SignalBadge signal={row[col]} /> : fmt(row[col], col)}
                     </td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
+          <div className="px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
             {filtered.length} rows{rows.length !== filtered.length ? ` (of ${rows.length})` : ''}
           </div>
         </div>

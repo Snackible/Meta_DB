@@ -13,7 +13,7 @@ export default function AdsetsPage() {
   const [error, setError]   = useState('')
 
   useEffect(() => {
-    fetch('/api/history?tab=Adsets')
+    fetch('/api/live-history?tab=Adsets')
       .then(r => r.json())
       .then(d => { setRows(d.rows || []); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })

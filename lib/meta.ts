@@ -139,3 +139,14 @@ export function fmt(d: Date) { return d.toISOString().split('T')[0] }
 export function daysAgo(n: number, base = new Date()) {
   const d = new Date(base); d.setDate(d.getDate() - n); return fmt(d)
 }
+
+/** Pulls per-day rows directly from the Meta API for the last `days` days (no Sheets dependency). */
+export async function fetchLastNDays(days: number) {
+  const dates = Array.from({ length: days }, (_, i) => daysAgo(days - i))
+  const perDay = await Promise.all(dates.map(fetchDay))
+  return {
+    campaigns: perDay.flatMap(d => d.campaigns),
+    adsets:    perDay.flatMap(d => d.adsets),
+    ads:       perDay.flatMap(d => d.ads),
+  }
+}

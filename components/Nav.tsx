@@ -1,7 +1,6 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { signOut, useSession } from 'next-auth/react'
 
 const links = [
   { href: '/',               label: 'Summary' },
@@ -13,7 +12,6 @@ const links = [
 
 export default function Nav() {
   const path = usePathname()
-  const { data: session } = useSession()
   return (
     <nav className="border-b border-gray-200 bg-white sticky top-0 z-10 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
@@ -33,11 +31,6 @@ export default function Nav() {
             </Link>
           ))}
         </div>
-        {session && (
-          <button onClick={() => signOut()} className="text-xs text-gray-400 hover:text-gray-700">
-            Sign out
-          </button>
-        )}
       </div>
     </nav>
   )

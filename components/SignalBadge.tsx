@@ -1,6 +1,6 @@
 const STYLES: Record<string, string> = {
-  Scale:   'bg-emerald-100 text-emerald-700',
-  Good:    'bg-sky-100 text-sky-700',
+  Scale:   'bg-violet-100 text-violet-700',
+  Good:    'bg-emerald-100 text-emerald-700',
   Monitor: 'bg-amber-100 text-amber-700',
   Reduce:  'bg-orange-100 text-orange-700',
   Low:     'bg-rose-100 text-rose-700',
@@ -14,7 +14,7 @@ export default function SignalBadge({ signal }: { signal: string }) {
     <span className="inline-flex items-center gap-1 flex-wrap">
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{base}</span>
       {rest.map(r => (
-        <span key={r} className="px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700">{r}</span>
+        <span key={r} className="px-2 py-0.5 rounded-full text-xs font-medium bg-fuchsia-100 text-fuchsia-700">{r}</span>
       ))}
     </span>
   )

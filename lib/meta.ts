@@ -19,10 +19,12 @@ function getSignal(spend: number, roas: number, cpc: number): string {
 }
 
 export interface MetaRow {
+  id: string // campaign_id / adset_id / ad_id — the stable join key across tabs and days
   date: string
   level: 'campaign' | 'adset' | 'ad'
   name: string
   campaign: string
+  campaignId: string
   spend: number
   clicks: number
   cpc: number
@@ -48,6 +50,8 @@ async function fetchLevel(
 ): Promise<MetaRow[]> {
   const nameField = level === 'campaign' ? 'campaign_name'
     : level === 'adset' ? 'adset_name,campaign_name' : 'ad_name,campaign_name'
+  const idField = level === 'campaign' ? 'campaign_id'
+    : level === 'adset' ? 'adset_id,campaign_id' : 'ad_id,campaign_id'
   const statusField = level === 'campaign' ? 'campaign.effective_status'
     : level === 'adset' ? 'adset.effective_status' : 'ad.effective_status'
 
@@ -64,7 +68,7 @@ async function fetchLevel(
   const params = new URLSearchParams({
     access_token: TOKEN,
     time_range: JSON.stringify({ since, until }),
-    fields: `spend,clicks,cpc,purchase_roas,actions,${nameField}`,
+    fields: `spend,clicks,cpc,purchase_roas,actions,${nameField},${idField}`,
     level,
     limit: '500',
     filtering: JSON.stringify(filters),
@@ -80,11 +84,14 @@ async function fetchLevel(
     const cpc    = parseFloat(row.cpc    || '0')
     const orders = getOrders(row.actions || [])
     const roas   = getRoas(row.purchase_roas || [])
+    const idKey  = level === 'campaign' ? 'campaign_id' : level === 'adset' ? 'adset_id' : 'ad_id'
     return {
-      date:     since === until ? since : `${since}/${until}`,
+      id:          row[idKey] || '',
+      date:        since === until ? since : `${since}/${until}`,
       level,
-      name:     row[level === 'campaign' ? 'campaign_name' : level === 'adset' ? 'adset_name' : 'ad_name'] || '',
-      campaign: row.campaign_name || '',
+      name:        row[level === 'campaign' ? 'campaign_name' : level === 'adset' ? 'adset_name' : 'ad_name'] || '',
+      campaign:    row.campaign_name || '',
+      campaignId:  row.campaign_id || '',
       spend, clicks, cpc, orders,
       roas,
       cpr: orders ? Math.round(spend / orders) : 0,
@@ -153,4 +160,38 @@ export async function fetchLastNDays(days: number, concurrency = 3) {
     adsets:    perDay.flatMap(d => d.adsets),
     ads:       perDay.flatMap(d => d.ads),
   }
+}
+
+export interface DaySummary {
+  date: string
+  spend: number
+  orders: number
+  clicks: number
+  roas: number
+  cpa: number
+  weekday: number // 0=Sun..6=Sat
+}
+
+/** Account-level spend/orders/ROAS per day, one Meta call per day (campaign-level, summed). Cheap enough for 30+ day windows. */
+export async function fetchDailySummaries(days: number, concurrency = 5): Promise<DaySummary[]> {
+  const dates = Array.from({ length: days }, (_, i) => daysAgo(days - i))
+  const out: DaySummary[] = []
+  for (let i = 0; i < dates.length; i += concurrency) {
+    const batch = dates.slice(i, i + concurrency)
+    const rows = await Promise.all(batch.map(d => fetchLevel('campaign', d, d)))
+    batch.forEach((date, idx) => {
+      const campaigns = rows[idx]
+      const spend  = campaigns.reduce((s, r) => s + r.spend, 0)
+      const orders = campaigns.reduce((s, r) => s + r.orders, 0)
+      const clicks = campaigns.reduce((s, r) => s + r.clicks, 0)
+      const rev    = campaigns.reduce((s, r) => s + r.roas * r.spend, 0)
+      out.push({
+        date, spend, orders, clicks,
+        roas: spend ? rev / spend : 0,
+        cpa:  orders ? spend / orders : 0,
+        weekday: new Date(date + 'T00:00:00Z').getUTCDay(),
+      })
+    })
+  }
+  return out
 }

@@ -122,7 +122,7 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={columns.length} className="text-center text-gray-400 py-8">No data</td></tr>
               ) : filtered.map((row, i) => (
-                <tr key={i} className={`border-b border-gray-100 hover:bg-indigo-50/40 ${roasOutliers[i] ? 'bg-rose-50/70' : ''}`}>
+                <tr key={row.id ? `${row.id}-${row.date}` : i} className={`border-b border-gray-100 hover:bg-indigo-50/40 ${roasOutliers[i] ? 'bg-rose-50/70' : ''}`}>
                   {columns.map(col => (
                     <td key={col} className="px-3 py-2 text-gray-700 whitespace-nowrap">
                       {col === 'signal' ? <SignalBadge signal={row[col]} /> : fmt(row[col], col)}

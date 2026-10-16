@@ -5,7 +5,7 @@ import DataTable from '@/components/DataTable'
 import TrendChart from '@/components/TrendChart'
 import { aggregateByDate } from '@/lib/stats'
 
-const COLS = ['date', 'name', 'campaign', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'clicks', 'signal']
+const COLS = ['id', 'date', 'name', 'campaign', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'clicks', 'signal']
 
 export default function AdsetsPage() {
   const [rows, setRows]     = useState<any[]>([])

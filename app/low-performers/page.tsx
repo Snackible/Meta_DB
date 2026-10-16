@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Nav from '@/components/Nav'
 import DataTable from '@/components/DataTable'
 
-const COLS = ['date', 'name', 'campaign', 'type', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'signal']
+const COLS = ['id', 'date', 'name', 'campaign', 'type', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'signal']
 
 export default function LowPerformersPage() {
   const [rows, setRows]     = useState<any[]>([])

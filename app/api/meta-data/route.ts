@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { fetchDay, fetchRange, daysAgo, fmt } from '@/lib/meta'
 
+export const maxDuration = 60
+
 export async function GET() {
   try {
     const today     = new Date()

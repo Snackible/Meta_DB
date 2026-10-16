@@ -70,7 +70,7 @@ async function fetchLevel(
     filtering: JSON.stringify(filters),
   })
 
-  const res  = await fetch(`${BASE}?${params}`, { signal: AbortSignal.timeout(30000) })
+  const res  = await fetch(`${BASE}?${params}`, { signal: AbortSignal.timeout(45000) })
   const data = await res.json()
   if (data.error) throw new Error(data.error.message)
 

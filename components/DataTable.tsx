@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import SignalBadge from './SignalBadge'
+import EntityDetail from './EntityDetail'
 import { outlierFlags } from '@/lib/stats'
 
 function inr(v: any) {
@@ -14,6 +15,7 @@ function fmt(v: any, col: string): string {
   const s = String(v)
   if (['spend', 'cpc', 'cpr'].includes(col)) return inr(v)
   if (col === 'roas') return parseFloat(v).toFixed(2) + 'x'
+  if (col === 'id') return s.length > 14 ? s.slice(0, 6) + '…' + s.slice(-4) : s
   if (col === 'avg3dRoas' || col === 'avg3d_roas') {
     const n = parseFloat(v); return isNaN(n) ? '—' : n.toFixed(2) + 'x'
   }
@@ -40,6 +42,7 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
   const [sortAsc, setSortAsc] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
+  const [selected, setSelected] = useState<any>(null)
 
   const filtered = useMemo(() => {
     let r = rows
@@ -91,9 +94,10 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
             <span className="w-2.5 h-2.5 rounded-sm bg-rose-200 border border-rose-300 inline-block" /> = statistical outlier
           </span>
         )}
+        <span className="text-xs text-gray-400 hidden sm:inline">Click a row for details</span>
         <button
           onClick={() => exportCSV(columns, rawRows)}
-          className="ml-auto bg-indigo-600 text-white rounded-md px-3 py-1.5 text-sm hover:bg-indigo-700 transition font-medium"
+          className="ml-auto bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-md px-3 py-1.5 text-sm hover:opacity-90 transition font-medium shadow-sm"
         >
           Download CSV
         </button>
@@ -102,10 +106,10 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
       {loading ? (
         <p className="text-gray-400 text-sm py-8 text-center">Loading…</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-indigo-50/40">
                 {columns.map(col => (
                   <th
                     key={col}
@@ -122,7 +126,11 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
               {filtered.length === 0 ? (
                 <tr><td colSpan={columns.length} className="text-center text-gray-400 py-8">No data</td></tr>
               ) : filtered.map((row, i) => (
-                <tr key={row.id ? `${row.id}-${row.date}` : i} className={`border-b border-gray-100 hover:bg-indigo-50/40 ${roasOutliers[i] ? 'bg-rose-50/70' : ''}`}>
+                <tr
+                  key={row.id ? `${row.id}-${row.date}` : i}
+                  onClick={() => setSelected(row)}
+                  className={`border-b border-gray-100 hover:bg-indigo-50/60 cursor-pointer transition-colors ${roasOutliers[i] ? 'bg-rose-50/70' : ''}`}
+                >
                   {columns.map(col => (
                     <td key={col} className="px-3 py-2 text-gray-700 whitespace-nowrap">
                       {col === 'signal' ? <SignalBadge signal={row[col]} /> : fmt(row[col], col)}
@@ -137,6 +145,8 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
           </div>
         </div>
       )}
+
+      {selected && <EntityDetail row={selected} allRows={rows} onClose={() => setSelected(null)} />}
     </div>
   )
 }

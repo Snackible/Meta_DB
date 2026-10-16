@@ -5,6 +5,7 @@ import SignalBadge from '@/components/SignalBadge'
 import TrendChart, { DailyPoint } from '@/components/TrendChart'
 import CpaTrendChart from '@/components/CpaTrendChart'
 import WeekdayChart from '@/components/WeekdayChart'
+import EntityDetail from '@/components/EntityDetail'
 
 function inr(n: number) {
   if (n >= 100000) return '₹' + (n / 100000).toFixed(2) + 'L'
@@ -12,11 +13,16 @@ function inr(n: number) {
   return '₹' + Math.round(n)
 }
 
-const TILE_ACCENTS = ['border-indigo-200 bg-indigo-50', 'border-emerald-200 bg-emerald-50', 'border-amber-200 bg-amber-50', 'border-sky-200 bg-sky-50']
+const TILE_ACCENTS = [
+  'border-indigo-200 bg-gradient-to-br from-indigo-50 to-white',
+  'border-violet-200 bg-gradient-to-br from-violet-50 to-white',
+  'border-teal-200 bg-gradient-to-br from-teal-50 to-white',
+  'border-fuchsia-200 bg-gradient-to-br from-fuchsia-50 to-white',
+]
 
 function Tile({ label, value, sub, i = 0 }: { label: string; value: string; sub?: string; i?: number }) {
   return (
-    <div className={`border rounded-xl p-5 flex flex-col gap-1 ${TILE_ACCENTS[i % TILE_ACCENTS.length]}`}>
+    <div className={`border rounded-xl p-5 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow ${TILE_ACCENTS[i % TILE_ACCENTS.length]}`}>
       <div className="text-xs text-gray-500 uppercase tracking-wide">{label}</div>
       <div className="text-2xl font-semibold text-gray-900">{value}</div>
       {sub && <div className="text-xs text-gray-500">{sub}</div>}
@@ -24,17 +30,17 @@ function Tile({ label, value, sub, i = 0 }: { label: string; value: string; sub?
   )
 }
 
-function MiniTable({ title, rows, emptyMsg }: { title: string; rows: any[]; emptyMsg: string }) {
+function MiniTable({ title, rows, emptyMsg, onSelect }: { title: string; rows: any[]; emptyMsg: string; onSelect: (row: any) => void }) {
   return (
     <div>
       <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">{title}</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-gray-400 py-6 text-center border border-dashed border-gray-200 rounded-xl">{emptyMsg}</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-indigo-50/40">
                 {['Name', 'Spend', 'Orders', 'ROAS', 'CPA', 'Signal'].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left text-xs text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
@@ -42,7 +48,7 @@ function MiniTable({ title, rows, emptyMsg }: { title: string; rows: any[]; empt
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={i} className="border-b border-gray-100 hover:bg-indigo-50/40">
+                <tr key={i} onClick={() => onSelect(r)} className="border-b border-gray-100 hover:bg-indigo-50/60 cursor-pointer transition-colors">
                   <td className="px-3 py-2 text-gray-700 max-w-xs truncate">{r.name}</td>
                   <td className="px-3 py-2 text-gray-700">{inr(r.spend)}</td>
                   <td className="px-3 py-2 text-gray-700">{r.orders}</td>
@@ -66,6 +72,7 @@ export default function SummaryPage() {
   const [ovError, setOvError] = useState('')
   const [loading, setLoading] = useState(true)
   const [ovLoading, setOvLoading] = useState(true)
+  const [selected, setSelected] = useState<any>(null)
 
   useEffect(() => {
     fetch('/api/meta-data')
@@ -164,11 +171,13 @@ export default function SummaryPage() {
               title="Scale candidates (strong ROAS, room to push budget)"
               rows={overview.scaleCandidates}
               emptyMsg="No consistent high-ROAS performers in the last 7 days."
+              onSelect={setSelected}
             />
             <MiniTable
               title="Needs attention (high spend, weak ROAS)"
               rows={overview.needsAttention}
               emptyMsg="Nothing flagged — no high-spend, low-ROAS campaigns this week."
+              onSelect={setSelected}
             />
           </div>
         )}
@@ -187,7 +196,7 @@ export default function SummaryPage() {
                 </thead>
                 <tbody>
                   {data.yesterday.campaigns.slice(0, 10).map((c: any, i: number) => (
-                    <tr key={i} className="border-b border-gray-100 hover:bg-indigo-50/40">
+                    <tr key={i} onClick={() => setSelected(c)} className="border-b border-gray-100 hover:bg-indigo-50/60 cursor-pointer transition-colors">
                       <td className="px-3 py-2 text-gray-700 max-w-xs truncate">{c.name}</td>
                       <td className="px-3 py-2 text-gray-700">{inr(c.spend)}</td>
                       <td className="px-3 py-2 text-gray-700">{c.orders}</td>
@@ -200,6 +209,14 @@ export default function SummaryPage() {
               </table>
             </div>
           </>
+        )}
+
+        {selected && (
+          <EntityDetail
+            row={selected}
+            allRows={[...(overview?.scaleCandidates || []), ...(overview?.needsAttention || []), ...(data?.yesterday?.campaigns || [])]}
+            onClose={() => setSelected(null)}
+          />
         )}
       </main>
     </div>

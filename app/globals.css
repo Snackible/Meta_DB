@@ -1,27 +1,37 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8fb;
-  --foreground: #1b1f27;
+  --background: #f5f6fb;
+  --foreground: #161a23;
   --card: #ffffff;
-  --border: #e5e8ef;
+  --border: #e6e8f0;
   --muted: #6b7280;
-  --accent-indigo: #4f46e5;
-  --accent-emerald: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-rose: #f43f5e;
-  --accent-sky: #0ea5e9;
+
+  --accent-indigo:  #4f46e5;
+  --accent-violet:  #7c3aed;
+  --accent-fuchsia: #c026d3;
+  --accent-emerald: #059669;
+  --accent-teal:    #0d9488;
+  --accent-cyan:    #0891b2;
+  --accent-amber:   #d97706;
+  --accent-orange:  #ea580c;
+  --accent-rose:    #e11d48;
+  --accent-sky:     #0284c7;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(1200px 500px at 0% -10%, rgba(99, 102, 241, 0.08), transparent),
+    radial-gradient(1000px 400px at 100% 0%, rgba(192, 38, 211, 0.06), transparent),
+    var(--background);
+}
+
+::selection {
+  background: rgba(79, 70, 229, 0.2);
 }

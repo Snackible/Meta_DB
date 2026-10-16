@@ -25,6 +25,7 @@ export interface MetaRow {
   name: string
   campaign: string
   campaignId: string
+  channel: 'WhatsApp' | 'Website'
   spend: number
   clicks: number
   cpc: number
@@ -32,6 +33,11 @@ export interface MetaRow {
   roas: number
   cpr: number
   signal: string
+}
+
+/** WhatsApp campaigns/adsets/ads are tagged (WA) or "WA - ..." in the naming convention used on this account. */
+export function classifyChannel(campaignName: string): 'WhatsApp' | 'Website' {
+  return /\(wa\)|(^|\s)wa(\s*-|\s*\|)/i.test(campaignName) ? 'WhatsApp' : 'Website'
 }
 
 export interface SummaryRow {
@@ -92,6 +98,7 @@ async function fetchLevel(
       name:        row[level === 'campaign' ? 'campaign_name' : level === 'adset' ? 'adset_name' : 'ad_name'] || '',
       campaign:    row.campaign_name || '',
       campaignId:  row.campaign_id || '',
+      channel:     classifyChannel(row.campaign_name || ''),
       spend, clicks, cpc, orders,
       roas,
       cpr: orders ? Math.round(spend / orders) : 0,
@@ -173,14 +180,18 @@ export interface DaySummary {
 }
 
 /** Account-level spend/orders/ROAS per day, one Meta call per day (campaign-level, summed). Cheap enough for 30+ day windows. */
-export async function fetchDailySummaries(days: number, concurrency = 5): Promise<DaySummary[]> {
+export async function fetchDailySummaries(
+  days: number,
+  concurrency = 5,
+  filter: (r: MetaRow) => boolean = () => true,
+): Promise<DaySummary[]> {
   const dates = Array.from({ length: days }, (_, i) => daysAgo(days - i))
   const out: DaySummary[] = []
   for (let i = 0; i < dates.length; i += concurrency) {
     const batch = dates.slice(i, i + concurrency)
     const rows = await Promise.all(batch.map(d => fetchLevel('campaign', d, d)))
     batch.forEach((date, idx) => {
-      const campaigns = rows[idx]
+      const campaigns = rows[idx].filter(filter)
       const spend  = campaigns.reduce((s, r) => s + r.spend, 0)
       const orders = campaigns.reduce((s, r) => s + r.orders, 0)
       const clicks = campaigns.reduce((s, r) => s + r.clicks, 0)

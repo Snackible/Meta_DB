@@ -7,6 +7,7 @@ const links = [
   { href: '/campaigns',      label: 'Campaigns' },
   { href: '/adsets',         label: 'Ad Sets' },
   { href: '/ads',            label: 'Ads' },
+  { href: '/whatsapp',       label: 'WhatsApp' },
   { href: '/low-performers', label: 'Low Performers' },
 ]
 

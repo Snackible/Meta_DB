@@ -34,9 +34,10 @@ interface Props {
   rows: Record<string, any>[]
   loading?: boolean
   error?: string
+  drilldownRows?: Record<string, any>[] // daily-granularity rows for the detail drawer's trend chart; falls back to `rows`
 }
 
-export default function DataTable({ columns, rows, loading, error }: Props) {
+export default function DataTable({ columns, rows, loading, error, drilldownRows }: Props) {
   const [search, setSearch]   = useState('')
   const [sortCol, setSortCol] = useState('')
   const [sortAsc, setSortAsc] = useState(false)
@@ -146,7 +147,7 @@ export default function DataTable({ columns, rows, loading, error }: Props) {
         </div>
       )}
 
-      {selected && <EntityDetail row={selected} allRows={rows} onClose={() => setSelected(null)} />}
+      {selected && <EntityDetail row={selected} allRows={drilldownRows || rows} onClose={() => setSelected(null)} />}
     </div>
   )
 }

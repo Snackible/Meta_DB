@@ -66,8 +66,8 @@ function MiniTable({ title, rows, emptyMsg, onSelect }: { title: string; rows: a
   )
 }
 
-const CAMPAIGN_COLS = ['id', 'date', 'name', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'clicks', 'signal']
-const ADSET_COLS    = ['id', 'date', 'name', 'campaign', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'clicks', 'signal']
+const CAMPAIGN_COLS = ['id', 'date', 'name', 'goal', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'clicks', 'signal']
+const ADSET_COLS    = ['id', 'date', 'name', 'campaign', 'goal', 'spend', 'orders', 'roas', 'cpc', 'cpr', 'clicks', 'signal']
 
 export default function WhatsAppPage() {
   const [data, setData]       = useState<any>(null)

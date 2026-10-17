@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
-import { fetchLastNDays } from '@/lib/meta'
+import { fetchLastNDays, fetchRange, daysActiveById, daysAgo, fmt } from '@/lib/meta'
+import { scorePool } from '@/lib/scoring'
 
 export const maxDuration = 60
-
-const LOW_PERFORMER_MIN_SPEND = 5000
-const LOW_PERFORMER_MAX_ROAS  = 2.5
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -12,16 +10,28 @@ export async function GET(req: Request) {
   const days = Math.min(30, Math.max(1, parseInt(searchParams.get('days') || '7')))
 
   try {
-    const { campaigns, adsets, ads } = await fetchLastNDays(days)
+    // Daily granularity (for per-entity drill-down trend + the "3+ active days" data gate)...
+    const { campaigns: dCampaigns, adsets: dAdsets, ads: dAds } = await fetchLastNDays(days)
+    // ...and the native 7-day aggregate per entity, which is what gets judged/displayed.
+    const weekly = await fetchRange(daysAgo(days), fmt(new Date()))
 
-    if (tab === 'Campaigns') return NextResponse.json({ rows: campaigns })
-    if (tab === 'Adsets')    return NextResponse.json({ rows: adsets })
-    if (tab === 'Ads')       return NextResponse.json({ rows: ads })
+    const activeCampaigns = daysActiveById(dCampaigns)
+    const activeAdsets    = daysActiveById(dAdsets)
+    const activeAds       = daysActiveById(dAds)
+
+    scorePool(weekly.campaigns, activeCampaigns)
+    scorePool(weekly.adsets, activeAdsets)
+    scorePool(weekly.ads, activeAds)
+
+    if (tab === 'Campaigns') return NextResponse.json({ rows: weekly.campaigns, daily: dCampaigns })
+    if (tab === 'Adsets')    return NextResponse.json({ rows: weekly.adsets, daily: dAdsets })
+    if (tab === 'Ads')       return NextResponse.json({ rows: weekly.ads, daily: dAds })
     if (tab === 'LowPerformers') {
-      const rows = [...campaigns, ...adsets]
-        .filter(r => r.spend >= LOW_PERFORMER_MIN_SPEND && r.roas < LOW_PERFORMER_MAX_ROAS)
+      const rows = [...weekly.campaigns, ...weekly.adsets]
+        .filter(r => r.signal === 'Low' || r.signal === 'Reduce')
         .map(r => ({ ...r, type: r.level }))
-      return NextResponse.json({ rows })
+        .sort((a, b) => b.spend - a.spend)
+      return NextResponse.json({ rows, daily: [...dCampaigns, ...dAdsets] })
     }
     return NextResponse.json({ error: `Unknown tab: ${tab}` }, { status: 400 })
   } catch (e: any) {

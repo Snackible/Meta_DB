@@ -2,20 +2,53 @@ const TOKEN   = process.env.META_TOKEN!
 const ACCOUNT = process.env.META_AD_ACCOUNT_ID!
 const BASE    = `https://graph.facebook.com/v21.0/${ACCOUNT}/insights`
 
+function actionValue(actions: any[], types: string[]): number {
+  if (!actions) return 0
+  for (const t of types) {
+    const hit = actions.find(a => a.action_type === t)
+    if (hit) return parseFloat(hit.value) || 0
+  }
+  return 0
+}
 function getOrders(actions: any[]): number {
-  return parseInt(actions?.find(a => a.action_type === 'omni_purchase')?.value || '0')
+  return actionValue(actions, ['omni_purchase'])
 }
 function getRoas(list: any[]): number {
-  return parseFloat(list?.find(r => r.action_type === 'omni_purchase')?.value || '0')
+  return actionValue(list, ['omni_purchase'])
+}
+function getLeads(actions: any[]): number {
+  return actionValue(actions, ['onsite_conversion.lead_grouped', 'lead'])
+}
+function getConversations(actions: any[]): number {
+  return actionValue(actions, [
+    'onsite_conversion.messaging_conversation_started_7d',
+    'onsite_conversion.total_messaging_connection',
+  ])
+}
+function getLandingPageViews(actions: any[]): number {
+  return actionValue(actions, ['omni_landing_page_view', 'landing_page_view'])
 }
 
-const ROAS_SCALE = 3.5, ROAS_GOOD = 3.0, ROAS_WARN = 2.5, HIGH_SPEND = 5000, CPC_ALERT = 12
-function getSignal(spend: number, roas: number, cpc: number): string {
-  const s = roas >= ROAS_SCALE ? 'Scale'
-    : roas >= ROAS_GOOD  ? 'Good'
-    : roas >= ROAS_WARN  ? 'Monitor'
-    : spend >= HIGH_SPEND ? 'Reduce' : 'Low'
-  return s + (cpc > CPC_ALERT ? ' | High CPC' : '')
+export type Goal = 'Sales' | 'Leads' | 'Messaging' | 'Traffic' | 'Other'
+
+const SALES_OBJECTIVES    = ['OUTCOME_SALES', 'CONVERSIONS', 'PRODUCT_CATALOG_SALES']
+const LEADS_OBJECTIVES    = ['OUTCOME_LEADS', 'LEAD_GENERATION']
+const MESSAGE_OBJECTIVES  = ['MESSAGES', 'OUTCOME_ENGAGEMENT']
+const TRAFFIC_OBJECTIVES  = ['OUTCOME_TRAFFIC', 'LINK_CLICKS']
+
+/** Judges each entity by its own goal (sales/leads/WhatsApp/traffic) rather than one global ROAS rule. */
+export function classifyGoal(objective: string, channel: 'WhatsApp' | 'Website'): Goal {
+  if (channel === 'WhatsApp' && (MESSAGE_OBJECTIVES.includes(objective) || LEADS_OBJECTIVES.includes(objective))) return 'Messaging'
+  if (SALES_OBJECTIVES.includes(objective)) return 'Sales'
+  if (LEADS_OBJECTIVES.includes(objective)) return 'Leads'
+  if (MESSAGE_OBJECTIVES.includes(objective)) return 'Messaging'
+  if (TRAFFIC_OBJECTIVES.includes(objective)) return 'Traffic'
+  return 'Other'
+}
+
+/** WhatsApp campaigns/adsets/ads are tagged (WA) or "WA - ..." in the naming convention used on this account. */
+export function classifyChannel(campaignName: string): 'WhatsApp' | 'Website' {
+  return /\(wa\)|(^|\s)wa(\s*-|\s*\|)/i.test(campaignName) ? 'WhatsApp' : 'Website'
 }
 
 export interface MetaRow {
@@ -26,18 +59,28 @@ export interface MetaRow {
   campaign: string
   campaignId: string
   channel: 'WhatsApp' | 'Website'
+  objective: string
+  goal: Goal
   spend: number
   clicks: number
   cpc: number
   orders: number
   roas: number
   cpr: number
+  leads: number
+  conversations: number
+  landingPageViews: number
+  primaryConversions: number
+  costPerPrimary: number
+  impressions: number
+  reach: number
+  frequency: number
+  cpm: number
+  ctr: number
+  hookRate: number // 3-second video views / impressions, %
   signal: string
-}
-
-/** WhatsApp campaigns/adsets/ads are tagged (WA) or "WA - ..." in the naming convention used on this account. */
-export function classifyChannel(campaignName: string): 'WhatsApp' | 'Website' {
-  return /\(wa\)|(^|\s)wa(\s*-|\s*\|)/i.test(campaignName) ? 'WhatsApp' : 'Website'
+  reasons: string[]
+  daysActive: number
 }
 
 export interface SummaryRow {
@@ -47,6 +90,14 @@ export interface SummaryRow {
   orders: number
   cpc: number
   roas: number
+}
+
+function primaryConversionsFor(goal: Goal, orders: number, leads: number, conversations: number, landingPageViews: number): number {
+  if (goal === 'Sales') return orders
+  if (goal === 'Leads') return leads
+  if (goal === 'Messaging') return conversations
+  if (goal === 'Traffic') return landingPageViews
+  return orders || leads || conversations || landingPageViews
 }
 
 async function fetchLevel(
@@ -63,7 +114,10 @@ async function fetchLevel(
 
   const filters: any[] = [
     { field: statusField, operator: 'IN', value: ['ACTIVE', 'PAUSED'] },
-    { field: 'objective', operator: 'IN', value: ['OUTCOME_SALES', 'CONVERSIONS'] },
+    {
+      field: 'objective', operator: 'IN',
+      value: [...SALES_OBJECTIVES, ...LEADS_OBJECTIVES, ...MESSAGE_OBJECTIVES, ...TRAFFIC_OBJECTIVES],
+    },
   ]
   if (level === 'adset') filters.push({ field: 'campaign.effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] })
   if (level === 'ad') {
@@ -74,7 +128,7 @@ async function fetchLevel(
   const params = new URLSearchParams({
     access_token: TOKEN,
     time_range: JSON.stringify({ since, until }),
-    fields: `spend,clicks,cpc,purchase_roas,actions,${nameField},${idField}`,
+    fields: `spend,clicks,cpc,impressions,reach,frequency,cpm,ctr,objective,purchase_roas,actions,video_3_sec_watched_actions,${nameField},${idField}`,
     level,
     limit: '500',
     filtering: JSON.stringify(filters),
@@ -88,22 +142,46 @@ async function fetchLevel(
     const spend  = parseFloat(row.spend  || '0')
     const clicks = parseInt(row.clicks   || '0')
     const cpc    = parseFloat(row.cpc    || '0')
+    const impressions = parseInt(row.impressions || '0')
+    const reach        = parseInt(row.reach || '0')
+    const frequency     = parseFloat(row.frequency || '0')
+    const cpm            = parseFloat(row.cpm || '0')
+    const ctr             = parseFloat(row.ctr || '0')
+    const video3s = actionValue(row.video_3_sec_watched_actions || [], ['video_view'])
+    const hookRate = impressions ? (video3s / impressions) * 100 : 0
+
     const orders = getOrders(row.actions || [])
     const roas   = getRoas(row.purchase_roas || [])
-    const idKey  = level === 'campaign' ? 'campaign_id' : level === 'adset' ? 'adset_id' : 'ad_id'
+    const leads  = getLeads(row.actions || [])
+    const conversations = getConversations(row.actions || [])
+    const landingPageViews = getLandingPageViews(row.actions || [])
+
+    const idKey      = level === 'campaign' ? 'campaign_id' : level === 'adset' ? 'adset_id' : 'ad_id'
+    const campaignName = row.campaign_name || ''
+    const channel     = classifyChannel(campaignName)
+    const objective   = row.objective || ''
+    const goal        = classifyGoal(objective, channel)
+    const primaryConversions = primaryConversionsFor(goal, orders, leads, conversations, landingPageViews)
+    const costPerPrimary = primaryConversions ? spend / primaryConversions : 0
+
     return {
       id:          row[idKey] || '',
       date:        since === until ? since : `${since}/${until}`,
       level,
       name:        row[level === 'campaign' ? 'campaign_name' : level === 'adset' ? 'adset_name' : 'ad_name'] || '',
-      campaign:    row.campaign_name || '',
+      campaign:    campaignName,
       campaignId:  row.campaign_id || '',
-      channel:     classifyChannel(row.campaign_name || ''),
-      spend, clicks, cpc, orders,
-      roas,
+      channel, objective, goal,
+      spend, clicks, cpc,
+      orders, roas,
       cpr: orders ? Math.round(spend / orders) : 0,
-      signal: getSignal(spend, roas, cpc),
-    }
+      leads, conversations, landingPageViews,
+      primaryConversions, costPerPrimary,
+      impressions, reach, frequency, cpm, ctr, hookRate,
+      signal: '', // assigned by lib/scoring.ts, which needs the full pool for median comparisons
+      reasons: [],
+      daysActive: 0, // filled in by the caller when daily granularity is available
+    } as MetaRow
   }).filter((r: MetaRow) => r.spend > 0)
 }
 
@@ -204,5 +282,19 @@ export async function fetchDailySummaries(
       })
     })
   }
+  return out
+}
+
+/** Counts, per entity id, how many of the given daily rows had spend > 0 — used for the "3+ days running" data-gate. */
+export function daysActiveById(dailyRows: MetaRow[]): Map<string, number> {
+  const byId = new Map<string, Set<string>>()
+  for (const r of dailyRows) {
+    if (r.spend <= 0) continue
+    const dateOnly = r.date.split('/')[0]
+    if (!byId.has(r.id)) byId.set(r.id, new Set())
+    byId.get(r.id)!.add(dateOnly)
+  }
+  const out = new Map<string, number>()
+  for (const [id, dates] of byId) out.set(id, dates.size)
   return out
 }

@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { fetchDailySummaries, fetchRange, daysAgo, fmt, type MetaRow } from '@/lib/meta'
+import { scorePool } from '@/lib/scoring'
 
 export const maxDuration = 60
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const LOW_PERFORMER_MIN_SPEND = 2000
-const LOW_PERFORMER_MAX_ROAS  = 2.5
 const isWhatsApp = (r: MetaRow) => r.channel === 'WhatsApp'
 
 function istDateParts(d = new Date()) {
@@ -65,12 +64,13 @@ export async function GET() {
     })).sort((a, b) => WEEKDAY_NAMES.indexOf(a.weekday) - WEEKDAY_NAMES.indexOf(b.weekday))
 
     const pool = [...weekCampaigns, ...weekAdsets]
+    scorePool(pool, new Map())
     const scaleCandidates = pool
-      .filter(r => r.signal.startsWith('Scale') && r.spend >= 200)
+      .filter(r => r.signal === 'Scale')
       .sort((a, b) => b.roas - a.roas)
       .slice(0, 8)
     const needsAttention = pool
-      .filter(r => r.spend >= LOW_PERFORMER_MIN_SPEND && r.roas < LOW_PERFORMER_MAX_ROAS)
+      .filter(r => r.signal === 'Low' || r.signal === 'Reduce')
       .sort((a, b) => b.spend - a.spend)
       .slice(0, 8)
 

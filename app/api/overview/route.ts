@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { fetchDailySummaries, fetchRange, daysAgo, fmt, type MetaRow } from '@/lib/meta'
+import { scorePool } from '@/lib/scoring'
 
 export const maxDuration = 60
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const LOW_PERFORMER_MIN_SPEND = 5000
-const LOW_PERFORMER_MAX_ROAS  = 2.5
 
 function istDateParts(d = new Date()) {
   const ist = new Date(d.getTime() + 5.5 * 3600000)
@@ -46,14 +45,17 @@ export async function GET() {
       cpa: v.orders ? v.spend / v.orders : 0,
     })).sort((a, b) => WEEKDAY_NAMES.indexOf(a.weekday) - WEEKDAY_NAMES.indexOf(b.weekday))
 
-    // --- Scale candidates / needs attention, from the trailing 7-day window ---
+    // --- Scale candidates / needs attention, from the trailing 7-day window, judged by each entity's own goal.
+    // No per-entity daily data at this scope, so the "3+ active days" gate falls back to assuming the minimum —
+    // only the spend gate is strictly enforced here (see Campaigns/Adsets/Ads tabs for the full day-count gate).
     const pool: MetaRow[] = [...week.campaigns, ...week.adsets]
+    scorePool(pool, new Map())
     const scaleCandidates = pool
-      .filter(r => r.signal.startsWith('Scale') && r.spend >= 500)
+      .filter(r => r.signal === 'Scale')
       .sort((a, b) => b.roas - a.roas)
       .slice(0, 8)
     const needsAttention = pool
-      .filter(r => r.spend >= LOW_PERFORMER_MIN_SPEND && r.roas < LOW_PERFORMER_MAX_ROAS)
+      .filter(r => r.signal === 'Low' || r.signal === 'Reduce')
       .sort((a, b) => b.spend - a.spend)
       .slice(0, 8)
 

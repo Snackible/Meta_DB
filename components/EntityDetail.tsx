@@ -88,7 +88,21 @@ export default function EntityDetail({ row, allRows, onClose }: Props) {
         <div className="p-5 flex flex-col gap-6">
           <div>
             <SignalBadge signal={row.signal} />
+            {row.goal && <span className="ml-2 text-xs text-gray-400">Goal: {row.goal}</span>}
           </div>
+
+          {Array.isArray(row.reasons) && row.reasons.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Why this signal</h3>
+              <div className="flex flex-col gap-2">
+                {row.reasons.map((r: string, i: number) => (
+                  <div key={i} className={`border rounded-lg px-3 py-2 text-sm ${TONE_STYLES[row.signal === 'Scale' || row.signal === 'Good' ? 'good' : row.signal === 'Low' || row.signal === 'Reduce' ? 'bad' : 'neutral']}`}>
+                    {r}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-4 gap-3">
             {[
@@ -123,7 +137,7 @@ export default function EntityDetail({ row, allRows, onClose }: Props) {
 
           {insights.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Interpretation</h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Trend analysis</h3>
               <div className="flex flex-col gap-2">
                 {insights.map((ins, i) => (
                   <div key={i} className={`border rounded-lg px-3 py-2 text-sm ${TONE_STYLES[ins.tone]}`}>

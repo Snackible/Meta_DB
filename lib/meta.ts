@@ -128,7 +128,7 @@ async function fetchLevel(
   const params = new URLSearchParams({
     access_token: TOKEN,
     time_range: JSON.stringify({ since, until }),
-    fields: `spend,clicks,cpc,impressions,reach,frequency,cpm,ctr,objective,purchase_roas,actions,video_3_sec_watched_actions,${nameField},${idField}`,
+    fields: `spend,clicks,cpc,impressions,reach,frequency,cpm,ctr,objective,purchase_roas,actions,video_play_actions,${nameField},${idField}`,
     level,
     limit: '500',
     filtering: JSON.stringify(filters),
@@ -147,7 +147,8 @@ async function fetchLevel(
     const frequency     = parseFloat(row.frequency || '0')
     const cpm            = parseFloat(row.cpm || '0')
     const ctr             = parseFloat(row.ctr || '0')
-    const video3s = actionValue(row.video_3_sec_watched_actions || [], ['video_view'])
+    // video_play_actions = continuous 3-second-or-longer plays; closest available proxy for "hook rate".
+    const video3s = actionValue(row.video_play_actions || [], ['video_view'])
     const hookRate = impressions ? (video3s / impressions) * 100 : 0
 
     const orders = getOrders(row.actions || [])
